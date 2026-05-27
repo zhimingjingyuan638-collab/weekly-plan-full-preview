@@ -519,7 +519,7 @@
     // ── SyncStatus（ヘッダー右側に表示する同期状態） ────────────
     function SyncStatus({ sync }) {
       if (!sync) return null;
-      const { status, userName, reload, signOut } = sync;
+      const { status, userName, reload, signOut, lastSyncAt } = sync;
       // status: 'synced' / 'saving' / 'offline' / 'loading' / 'error'
       const map = {
         synced:  { icon:'☁️', label:'同期済み', cls:'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -529,16 +529,39 @@
         error:   { icon:'⚠️', label:'保存失敗',  cls:'bg-red-50 text-red-700 border-red-200'             },
       };
       const m = map[status] || map.synced;
+      // 最終同期時刻を「◯分前」表記に
+      const [now, setNow] = useState(Date.now());
+      useEffect(() => {
+        const id = setInterval(() => setNow(Date.now()), 30000);
+        return () => clearInterval(id);
+      }, []);
+      let timeLabel = '';
+      if (lastSyncAt) {
+        const diff = Math.max(0, Math.floor((now - lastSyncAt.getTime()) / 1000));
+        if (diff < 5) timeLabel = 'たった今';
+        else if (diff < 60) timeLabel = `${diff}秒前`;
+        else if (diff < 3600) timeLabel = `${Math.floor(diff/60)}分前`;
+        else timeLabel = `${Math.floor(diff/3600)}時間前`;
+      }
       return (
-        <div className="hidden sm:flex items-center gap-2 shrink-0">
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${m.cls}`}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-wrap justify-end">
+          <div className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-bold border ${m.cls}`}
                title={userName ? `${userName} さんとして同期中` : ''}>
             <span>{m.icon}</span>
             <span>{m.label}</span>
+            {timeLabel && status === 'synced' && (
+              <span className="text-gray-500 font-normal">（{timeLabel}）</span>
+            )}
             {userName && <span className="hidden md:inline text-gray-500 font-normal">（{userName}）</span>}
           </div>
-          <button onClick={reload} title="Driveから再読込" className="px-2 py-1 text-xs font-semibold text-gray-600 hover:text-blue-600 rounded-lg border border-gray-200 hover:bg-blue-50 transition">🔄</button>
-          <button onClick={signOut} title="ログアウト" className="px-2 py-1 text-xs font-semibold text-gray-600 hover:text-red-600 rounded-lg border border-gray-200 hover:bg-red-50 transition">🚪</button>
+          <button onClick={reload} title="Driveから再読込（最新を取り直す）"
+                  className="px-2 py-1 text-xs font-semibold text-gray-700 hover:text-blue-700 rounded-lg border border-gray-300 hover:border-blue-300 hover:bg-blue-50 transition active:scale-95">
+            🔄 <span className="hidden sm:inline">最新化</span>
+          </button>
+          <button onClick={signOut} title="ログアウト"
+                  className="px-2 py-1 text-xs font-semibold text-gray-600 hover:text-red-600 rounded-lg border border-gray-200 hover:bg-red-50 transition">
+            🚪
+          </button>
         </div>
       );
     }
@@ -2397,6 +2420,35 @@
     // アクセストークン状態。currentScope に応じて Drive のみ／+Calendar まで持つ。
     const tokenState = { accessToken:null, expiresAt:0, currentScope:'' };
 
+    // ── トークン永続化（リロード対策）──────────────────────────
+    // localStorage に保存。短命トークン（最大1時間）なので CSRF/盗難リスクは限定的だが、
+    // ホストドメインを信用できる前提（GitHub Pages / Cloudflare Pages 想定）。
+    const TOKEN_STORAGE_KEY = 'weekPlanBYOCAuthToken_v1';
+    function loadStoredToken() {
+      try {
+        const raw = localStorage.getItem(TOKEN_STORAGE_KEY);
+        if (!raw) return null;
+        const obj = JSON.parse(raw);
+        if (!obj || !obj.accessToken || !obj.expiresAt) return null;
+        // 60秒の余裕を見て期限内かチェック
+        if (Date.now() > (obj.expiresAt - 60 * 1000)) return null;
+        return obj;
+      } catch { return null; }
+    }
+    function saveStoredToken() {
+      try {
+        if (!tokenState.accessToken || !tokenState.expiresAt) return;
+        localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify({
+          accessToken: tokenState.accessToken,
+          expiresAt:   tokenState.expiresAt,
+          scope:       tokenState.currentScope,
+        }));
+      } catch {}
+    }
+    function clearStoredToken() {
+      try { localStorage.removeItem(TOKEN_STORAGE_KEY); } catch {}
+    }
+
     function isClientIdConfigured() {
       return OAUTH_CLIENT_ID && OAUTH_CLIENT_ID.indexOf('<') !== 0;
     }
@@ -2443,6 +2495,7 @@
               tokenState.accessToken  = resp.access_token;
               tokenState.expiresAt    = Date.now() + ((resp.expires_in || 3600) - 60) * 1000;
               tokenState.currentScope = resp.scope || scope;
+              saveStoredToken(); // ★リロード対策：localStorage に保存
               resolve(resp.access_token);
             } else {
               reject(new Error('access_token 取得失敗'));
@@ -2470,6 +2523,7 @@
       const res = await fetch(url, { ...opts, headers });
       if (res.status === 401 && retry) {
         tokenState.accessToken = null;
+        clearStoredToken();
         await requestAccessToken({ prompt: '', withCalendar: hasCalendarScope() });
         return apiFetch(url, opts, false);
       }
@@ -2719,6 +2773,7 @@
       const [authPhase,   setAuthPhase ] = useState('idle'); // 'idle' / 'signed-in'
       const [authError,   setAuthError ] = useState('');
       const [syncStatus,  setSyncStatus] = useState('loading'); // 'loading'/'synced'/'saving'/'offline'/'error'
+      const [lastSyncAt,  setLastSyncAt] = useState(null); // Date: 最終同期成功時刻
       const [userInfo,    setUserInfo  ] = useState(null);
       const driveRef = useRef({ folderId:null, fileId:null, initialized:false });
       const loadedRef = useRef(false);          // 初回 Drive ロード完了フラグ
@@ -2772,6 +2827,7 @@
           }
           loadedRef.current = true;
           setSyncStatus('synced');
+          setLastSyncAt(new Date());
         } catch (e) {
           console.warn('Drive load failed, continue with local cache:', e);
           loadedRef.current = true;
@@ -2798,6 +2854,7 @@
             const res = await uploadData(driveRef.current.folderId, driveRef.current.fileId, payload);
             if (res && res.id) driveRef.current.fileId = res.id;
             setSyncStatus('synced');
+            setLastSyncAt(new Date());
           } catch (e) {
             console.warn('Drive save failed:', e);
             setSyncStatus('offline'); // localStorage には既に safeSave 済みなので退避OK
@@ -2869,6 +2926,7 @@
         tokenState.accessToken = null;
         tokenState.expiresAt   = 0;
         tokenState.currentScope = '';
+        clearStoredToken(); // ★永続化トークンも消す
         loadedRef.current = false;
         driveRef.current = { folderId:null, fileId:null, initialized:false };
         setUserInfo(null);
@@ -2883,9 +2941,70 @@
         await loadFromDrive();
       }, [authPhase, loadFromDrive]);
 
+      // ── ★自動サインイン（マウント時に一度だけ）─────────────
+      //   1. localStorage に有効なトークンがあれば即サインイン状態に復元
+      //   2. なければ GIS の silent サインイン（prompt:'none'）を試行
+      //   3. それも失敗したら手動ログイン待ち（idle）
+      const autoSignedInRef = useRef(false);
+      useEffect(() => {
+        if (autoSignedInRef.current) return;
+        autoSignedInRef.current = true;
+        (async () => {
+          if (!isClientIdConfigured()) return;
+          // (1) localStorage 復元
+          const stored = loadStoredToken();
+          if (stored) {
+            tokenState.accessToken  = stored.accessToken;
+            tokenState.expiresAt    = stored.expiresAt;
+            tokenState.currentScope = stored.scope || OAUTH_SCOPE_DRIVE;
+            try {
+              const u = await fetchUserInfo();
+              if (u) {
+                setUserInfo(u);
+                setAuthPhase('signed-in');
+                await loadFromDrive();
+                return;
+              }
+            } catch {}
+            // userinfo失敗＝トークン無効
+            tokenState.accessToken = null;
+            clearStoredToken();
+          }
+          // (2) GIS silent サインイン
+          try {
+            await waitForGIS();
+            await requestAccessToken({ prompt: 'none', withCalendar: calendarEnabled });
+            const u = await fetchUserInfo();
+            if (u) {
+              setUserInfo(u);
+              setAuthPhase('signed-in');
+              await loadFromDrive();
+            }
+          } catch (e) {
+            // silent サインイン失敗 → idle のまま（手動ログイン待ち）
+            console.info('Silent sign-in unavailable; manual sign-in required.');
+          }
+        })();
+      // 意図的に [] でマウント時1回のみ実行
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, []);
+
+      // ── ★visibilitychange：戻ってきた時に Drive から最新化 ────
+      useEffect(() => {
+        function onVisibility() {
+          if (document.visibilityState !== 'visible') return;
+          if (authPhase !== 'signed-in') return;
+          // 表示に戻った瞬間に最新を取りに行く（スマホとPCの切替時の同期に効く）
+          loadFromDrive();
+        }
+        document.addEventListener('visibilitychange', onVisibility);
+        return () => document.removeEventListener('visibilitychange', onVisibility);
+      }, [authPhase, loadFromDrive]);
+
       const syncProp = {
         status: syncStatus,
         userName: userInfo?.name || userInfo?.email || '',
+        lastSyncAt,
         reload: doReload,
         signOut: doSignOut,
       };
