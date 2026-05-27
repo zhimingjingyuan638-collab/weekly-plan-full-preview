@@ -2805,7 +2805,8 @@
       }, [calendarEnabled]);
 
       // ── BYOC：Drive ロード ────────────────────────────────────
-      const loadFromDrive = useCallback(async () => {
+      // retryLeft：失敗時の自動リトライ回数（スマホ起動直後のネットワーク確立待ちを吸収）
+      const loadFromDrive = useCallback(async (retryLeft = 2) => {
         setSyncStatus('loading');
         try {
           const folderId = await ensureFolder();
@@ -2829,7 +2830,14 @@
           setSyncStatus('synced');
           setLastSyncAt(new Date());
         } catch (e) {
-          console.warn('Drive load failed, continue with local cache:', e);
+          console.warn('Drive load failed:', e, 'retryLeft=', retryLeft);
+          // 初回失敗時はスマホの通信確立待ちを想定して 2秒→4秒で再試行
+          if (retryLeft > 0) {
+            const delay = retryLeft === 2 ? 2000 : 4000;
+            // loadedRef は false のまま → 再試行中に saveToDrive が走らない
+            setTimeout(() => { loadFromDrive(retryLeft - 1); }, delay);
+            return;
+          }
           loadedRef.current = true;
           setSyncStatus('offline');
         }
@@ -2996,6 +3004,16 @@
         }
         document.addEventListener('visibilitychange', onVisibility);
         return () => document.removeEventListener('visibilitychange', onVisibility);
+      }, [authPhase, loadFromDrive]);
+
+      // ── ★online：通信が復活した瞬間に自動再同期 ───────────────
+      useEffect(() => {
+        function onOnline() {
+          if (authPhase !== 'signed-in') return;
+          loadFromDrive();
+        }
+        window.addEventListener('online', onOnline);
+        return () => window.removeEventListener('online', onOnline);
       }, [authPhase, loadFromDrive]);
 
       const syncProp = {
