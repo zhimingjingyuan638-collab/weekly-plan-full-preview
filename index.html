@@ -2942,47 +2942,44 @@
       }, [authPhase, loadFromDrive]);
 
       // ── ★自動サインイン（マウント時に一度だけ）─────────────
-      //   1. localStorage に有効なトークンがあれば即サインイン状態に復元
-      //   2. なければ GIS の silent サインイン（prompt:'none'）を試行
-      //   3. それも失敗したら手動ログイン待ち（idle）
+      //   localStorage に有効なトークンがあれば、Drive API でトークンの有効性を確認し
+      //   即サインイン状態に復元する。silent サインイン（prompt:'none'）は使わない
+      //   （iframe/popup を一瞬開いてしまうため、UX が悪化する）。
+      //   トークンが無効・存在しない場合は idle のまま手動ログイン待ち。
       const autoSignedInRef = useRef(false);
       useEffect(() => {
         if (autoSignedInRef.current) return;
         autoSignedInRef.current = true;
         (async () => {
           if (!isClientIdConfigured()) return;
-          // (1) localStorage 復元
           const stored = loadStoredToken();
-          if (stored) {
-            tokenState.accessToken  = stored.accessToken;
-            tokenState.expiresAt    = stored.expiresAt;
-            tokenState.currentScope = stored.scope || OAUTH_SCOPE_DRIVE;
-            try {
-              const u = await fetchUserInfo();
-              if (u) {
-                setUserInfo(u);
-                setAuthPhase('signed-in');
-                await loadFromDrive();
-                return;
-              }
-            } catch {}
-            // userinfo失敗＝トークン無効
-            tokenState.accessToken = null;
-            clearStoredToken();
-          }
-          // (2) GIS silent サインイン
+          if (!stored) return; // 手動ログイン待ち
+          tokenState.accessToken  = stored.accessToken;
+          tokenState.expiresAt    = stored.expiresAt;
+          tokenState.currentScope = stored.scope || OAUTH_SCOPE_DRIVE;
+          // Drive about API を叩いてトークンの有効性を検証
+          //   drive.file スコープでも about?fields=user は許可されている
           try {
-            await waitForGIS();
-            await requestAccessToken({ prompt: 'none', withCalendar: calendarEnabled });
-            const u = await fetchUserInfo();
-            if (u) {
-              setUserInfo(u);
-              setAuthPhase('signed-in');
-              await loadFromDrive();
+            const r = await fetch(
+              'https://www.googleapis.com/drive/v3/about?fields=user',
+              { headers: { Authorization: `Bearer ${stored.accessToken}` } }
+            );
+            if (!r.ok) throw new Error('stored token invalid: ' + r.status);
+            const data = await r.json();
+            if (data && data.user) {
+              setUserInfo({
+                email: data.user.emailAddress || '',
+                name:  data.user.displayName || data.user.emailAddress || '',
+              });
             }
+            setAuthPhase('signed-in');
+            await loadFromDrive();
           } catch (e) {
-            // silent サインイン失敗 → idle のまま（手動ログイン待ち）
-            console.info('Silent sign-in unavailable; manual sign-in required.');
+            console.info('Stored token invalid, cleared. Manual sign-in required.');
+            tokenState.accessToken = null;
+            tokenState.expiresAt = 0;
+            tokenState.currentScope = '';
+            clearStoredToken();
           }
         })();
       // 意図的に [] でマウント時1回のみ実行
