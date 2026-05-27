@@ -16,9 +16,15 @@
     /* モバイル：スクロールバー非表示 */
     .overflow-x-auto { -webkit-overflow-scrolling: touch; }
     .overflow-x-auto::-webkit-scrollbar { display: none; }
+    /* ★スマホでテーブル等が画面より広い時に、ページ全体まで横スクロールしてしまう問題の防止。
+       テーブル本体は外側を .overflow-x-auto で囲んで個別にスクロール可能にしている。
+       html/body レベルで overflow-x:hidden を強制することで、ヘッダや本文枠が画面幅を
+       超えてレイアウトされる事故を防ぐ。 */
+    html, body { overflow-x: hidden; max-width: 100vw; }
     @media print {
       .no-print { display: none !important; }
-      body { background: white; }
+      body { background: white; overflow-x: visible; }
+      html { overflow-x: visible; }
       .print-card { box-shadow: none; border: 1px solid #e5e7eb; }
     }
   </style>
@@ -3113,7 +3119,7 @@
       }
 
       return (
-        <div className="min-h-screen bg-slate-100 flex flex-col">
+        <div className="min-h-screen bg-slate-100 flex flex-col w-full max-w-full overflow-x-hidden">
           <TopNav view={view} setView={setView} ready={isSettingsReady(settings)} sync={syncProp}/>
           {view==='main'
             ? <WeeklyPlanView settings={settings} annualData={annualData} master={master} timetable={timetable} nikka={nikka}
