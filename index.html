@@ -6,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <meta name="app-version" content="2026-05-27-basett-567-switch">
+  <meta name="app-version" content="2026-05-27-basett-mobile-fit">
   <title>週案 BYOC（Google Drive 同期版＋カレンダーAPI直叩き）</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -24,6 +24,21 @@
       overscroll-behavior-x: contain;
     }
     .overflow-x-auto::-webkit-scrollbar { display: none; }
+    /* ★ベース時間割テーブル：スマホでは min-width を解除して画面幅に押し込む。
+       iOS Safari で overflow-x:auto のタッチが効かないケースの最終手段。
+       PC では従来通り style 属性の min-width が効く（読みやすさ優先）。 */
+    @media (max-width: 639px) {
+      .tt-base-table { min-width: 0 !important; width: 100% !important; }
+      .tt-base-table .tt-base-period-col { width: 32px !important; }
+      .tt-base-table th { padding: 4px 1px !important; }
+      .tt-base-table thead th .text-lg { font-size: 12px !important; }
+      .tt-base-table td { padding: 0 !important; }
+      /* PeriodCell の中身（テーブルセル内の表示）も小さく */
+      .tt-base-table td .text-sm,
+      .tt-base-table td .text-xs { font-size: 9px !important; line-height: 1.15 !important; }
+      .tt-base-table td button,
+      .tt-base-table td > div { padding: 2px 1px !important; min-height: 38px !important; }
+    }
     /* ★ページ全体には overflow-x:hidden を入れない（iOS Safari で子の
        overflow-x:auto のタッチが阻害されるため）。
        代わりに overflow-x:clip を使う：clip は scroll port を作らないので
@@ -743,13 +758,13 @@
             </div>
 
             {/* ── グリッド ──
-                表示日数（5/6/7）に応じて minWidth を可変。月〜金なら 5 列で
-                スマホ画面に余裕で収まる。 */}
+                スマホ：CSS で min-width を強制 0 にして画面幅に押し込む（横スクロール不使用）。
+                PC：style の min-width が効いて、読みやすい列幅を確保。 */}
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse table-fixed"
+              <table className="w-full border-collapse table-fixed tt-base-table"
                      style={{minWidth: ttVisibleDays===5 ? '540px' : ttVisibleDays===6 ? '620px' : '700px'}}>
                 <colgroup>
-                  <col style={{width:'52px'}}/>
+                  <col className="tt-base-period-col" style={{width:'52px'}}/>
                   {TT_VIS_DAY_KEYS.map(k => <col key={k}/>)}
                 </colgroup>
                 <thead>
