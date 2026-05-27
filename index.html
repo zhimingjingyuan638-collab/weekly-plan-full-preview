@@ -13,20 +13,19 @@
   <style>
     body { font-family: 'Hiragino Sans', 'Yu Gothic UI', sans-serif; }
     .cell-hover:hover { filter: brightness(0.97); }
-    /* ★スマホ：内部の横スクロール領域でタッチを確実に効かせる
-       html/body に overflow-x:hidden を入れていると、子の overflow-x:auto の
-       タッチが阻害される iOS Safari のクセを touch-action で打ち消す。 */
+    /* スマホの内部横スクロール領域でタッチを通すための明示指定。 */
     .overflow-x-auto {
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
       overscroll-behavior-x: contain;
     }
     .overflow-x-auto::-webkit-scrollbar { display: none; }
-    /* ★スマホでテーブル等が画面より広い時に、ページ全体まで横スクロールしてしまう問題の防止。
-       テーブル本体は外側を .overflow-x-auto で囲んで個別にスクロール可能にしている。
-       html/body レベルで overflow-x:hidden を強制することで、ヘッダや本文枠が画面幅を
-       超えてレイアウトされる事故を防ぐ。 */
-    html, body { overflow-x: hidden; max-width: 100vw; }
+    /* ★ページ全体には overflow-x:hidden を入れない（iOS Safari で子の
+       overflow-x:auto のタッチが阻害されるため）。
+       代わりに overflow-x:clip を使う：clip は scroll port を作らないので
+       子のタッチスクロールを邪魔せず、かつページ全体の横はみ出しはクリップする。
+       未対応ブラウザでは無視される（=ふつうに overflow visible）。 */
+    html, body { overflow-x: clip; max-width: 100vw; }
     @media print {
       .no-print { display: none !important; }
       body { background: white; overflow-x: visible; }
@@ -3133,7 +3132,9 @@
       }
 
       return (
-        <div className="min-h-screen bg-slate-100 flex flex-col w-full max-w-full overflow-x-hidden">
+        // overflow-x-clip：scroll port を作らないので、子の overflow-x:auto の
+        // タッチスクロールを阻害しない。未対応ブラウザでは無視される。
+        <div className="min-h-screen bg-slate-100 flex flex-col w-full max-w-full" style={{overflowX:'clip'}}>
           <TopNav view={view} setView={setView} ready={isSettingsReady(settings)} sync={syncProp}/>
           {view==='main'
             ? <WeeklyPlanView settings={settings} annualData={annualData} master={master} timetable={timetable} nikka={nikka}
