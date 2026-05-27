@@ -663,7 +663,12 @@
         <div className="max-w-5xl mx-auto py-6 px-4 space-y-4">
           <Flash msg={flashMsg} />
 
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          {/* ★スマホ：カード全体（ヘッダ・学期タブ・操作バー・表・一括登録）を
+              丸ごと一つの横スクロール容器にする。これでヘッダから一括登録ボタンまで
+              一緒に左右スワイプできて、画面より広い7列の表もそのまま見られる。
+              PC（sm以上）は従来通り overflow-hidden で角丸クリップ。 */}
+          <div className="bg-white rounded-2xl shadow-lg overflow-x-auto sm:overflow-hidden">
+            <div className="min-w-[680px] sm:min-w-0">
 
             {/* ── ヘッダー ── */}
             <div className="bg-gradient-to-r from-gray-700 to-gray-600 px-4 sm:px-6 py-3 sm:py-4 text-white flex items-center justify-between gap-3">
@@ -718,7 +723,9 @@
             </div>
 
             {/* ── グリッド ── */}
-            <div className="overflow-x-auto">
+            {/* スマホはカード全体で横スクロールするため、ここでは overflow-visible。
+                PC は従来通りこの領域単独で横スクロール。 */}
+            <div className="overflow-visible sm:overflow-x-auto">
               <table className="w-full border-collapse table-fixed" style={{minWidth:'640px'}}>
                 <colgroup>
                   <col style={{width:'52px'}}/>
@@ -778,7 +785,8 @@
                 </button>
               </div>
             </div>
-          </div>
+            </div>{/* ↑ min-w wrapper end */}
+          </div>{/* ↑ card outer end */}
 
           {/* ── 一括登録確認モーダル ── */}
           {confirmReg !== null && (() => {
