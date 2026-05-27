@@ -472,16 +472,20 @@
       ];
       return (
         <nav className="bg-white border-b border-gray-200 no-print sticky top-0 z-40 shadow-sm">
-          {/* ── PC: 1行レイアウト ── */}
-          <div className="px-4 py-3 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-sm">
+          {/* ── PC: 1行レイアウト ／ スマホ：2行で同期状態を独立した行に ── */}
+          <div className="px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-sm">
                 <span className="text-white font-black text-sm">週</span>
               </div>
               <div className="hidden sm:flex items-baseline gap-1.5">
                 <span className="font-bold text-gray-800 text-base tracking-tight">週案アプリ</span>
                 <span className="text-[10px] font-bold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">BYOC</span>
               </div>
+              {/* モバイル：現在のページ名（ロゴ右） */}
+              <span className="sm:hidden text-sm font-bold text-blue-600 whitespace-nowrap">
+                {tabs.find(t=>t.key===view)?.label}
+              </span>
             </div>
             {/* デスクトップ用タブ（sm以上） */}
             <div className="hidden sm:flex gap-1 bg-gray-100 p-1 rounded-xl">
@@ -494,18 +498,14 @@
                 </button>
               ))}
             </div>
-            {/* モバイル：現在のページ名 */}
-            <span className="sm:hidden text-sm font-bold text-blue-600">
-              {tabs.find(t=>t.key===view)?.label}
-            </span>
-            {/* 同期状態（右端） */}
+            {/* 同期状態（PC：右端、スマホ：ロゴと同じ行の右） */}
             <SyncStatus sync={sync} />
           </div>
           {/* ── モバイル用タブバー（sm未満） ── */}
           <div className="sm:hidden flex border-t border-gray-100 overflow-x-auto">
             {tabs.map(tab => (
               <button key={tab.key} onClick={() => setView(tab.key)}
-                className={`relative flex-1 min-w-[60px] py-2.5 text-xs font-bold whitespace-nowrap border-b-2 transition-all
+                className={`relative flex-1 min-w-[58px] py-2.5 text-xs font-bold whitespace-nowrap border-b-2 transition-all
                   ${view===tab.key?'text-blue-600 border-blue-500 bg-blue-50/40':'text-gray-400 border-transparent'}`}>
                 {tab.short}
                 {tab.warn && <span className="absolute top-1 right-1 w-2 h-2 bg-red-400 rounded-full border border-white"/>}
@@ -544,22 +544,22 @@
         else timeLabel = `${Math.floor(diff/3600)}時間前`;
       }
       return (
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-wrap justify-end">
-          <div className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-bold border ${m.cls}`}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0 justify-end" title={lastSyncAt && status==='synced' ? `最終同期：${timeLabel}` : ''}>
+          <div className={`flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-bold border ${m.cls}`}
                title={userName ? `${userName} さんとして同期中` : ''}>
             <span>{m.icon}</span>
-            <span>{m.label}</span>
+            <span className="hidden xs:inline sm:inline">{m.label}</span>
             {timeLabel && status === 'synced' && (
-              <span className="text-gray-500 font-normal">（{timeLabel}）</span>
+              <span className="hidden sm:inline text-gray-500 font-normal">（{timeLabel}）</span>
             )}
             {userName && <span className="hidden md:inline text-gray-500 font-normal">（{userName}）</span>}
           </div>
           <button onClick={reload} title="Driveから再読込（最新を取り直す）"
-                  className="px-2 py-1 text-xs font-semibold text-gray-700 hover:text-blue-700 rounded-lg border border-gray-300 hover:border-blue-300 hover:bg-blue-50 transition active:scale-95">
-            🔄 <span className="hidden sm:inline">最新化</span>
+                  className="px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs font-semibold text-gray-700 hover:text-blue-700 rounded-lg border border-gray-300 hover:border-blue-300 hover:bg-blue-50 transition active:scale-95">
+            🔄<span className="hidden sm:inline ml-0.5">最新化</span>
           </button>
           <button onClick={signOut} title="ログアウト"
-                  className="px-2 py-1 text-xs font-semibold text-gray-600 hover:text-red-600 rounded-lg border border-gray-200 hover:bg-red-50 transition">
+                  className="px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs font-semibold text-gray-600 hover:text-red-600 rounded-lg border border-gray-200 hover:bg-red-50 transition">
             🚪
           </button>
         </div>
@@ -654,12 +654,12 @@
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
 
             {/* ── ヘッダー ── */}
-            <div className="bg-gradient-to-r from-gray-700 to-gray-600 px-6 py-4 text-white flex items-center justify-between">
-              <div>
-                <p className="text-gray-300 text-xs font-semibold tracking-widest uppercase mb-0.5">Base Timetable</p>
-                <h1 className="text-xl font-bold">ベース時間割</h1>
+            <div className="bg-gradient-to-r from-gray-700 to-gray-600 px-4 sm:px-6 py-3 sm:py-4 text-white flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-gray-300 text-[10px] sm:text-xs font-semibold tracking-widest uppercase mb-0.5">Base Timetable</p>
+                <h1 className="text-lg sm:text-xl font-bold">ベース時間割</h1>
               </div>
-              <p className="text-gray-400 text-xs text-right">学期ごとの基本時間割を入力し<br/>週案へ一括登録できます（v2＝週6日／昼食・放課後対応）</p>
+              <p className="hidden sm:block text-gray-400 text-xs text-right shrink-0">学期ごとの基本時間割を入力し<br/>週案へ一括登録できます（v2＝週6日／昼食・放課後対応）</p>
             </div>
 
             {/* ── 学期タブ ── */}
@@ -1919,27 +1919,35 @@
             {/* v2.1.1：1テーブル構成に戻す（日程→行事→日課→1〜4限→昼食→5・6限→放課後→メモ）。
                 放課後とメモ・連絡事項の間に太線（border-b-2）を維持する。 */}
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden print-card">
-              <div className="bg-gradient-to-r from-blue-700 to-blue-500 px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 no-print">
+              <div className="bg-gradient-to-r from-blue-700 to-blue-500 px-4 sm:px-6 py-4 sm:py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 no-print">
                 <div>
                   {term && <span className="inline-block text-xs bg-white/20 text-blue-100 px-2.5 py-0.5 rounded-lg font-semibold mb-1">{term.name}</span>}
-                  <h1 className="text-white text-xl font-bold">{fmd(dates[0])}（{DAYS[0]}）〜 {fmd(dates[dates.length-1])}（{VIS_DAYS[VIS_DAYS.length-1]}）</h1>
+                  <h1 className="text-white text-lg sm:text-xl font-bold whitespace-nowrap">{fmd(dates[0])}（{DAYS[0]}）〜 {fmd(dates[dates.length-1])}（{VIS_DAYS[VIS_DAYS.length-1]}）</h1>
                 </div>
-                <div className="flex gap-2 items-center flex-wrap">
-                  <button onClick={prevWk}  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl text-sm font-semibold transition">← 前週</button>
-                  <button onClick={todayWk} className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl text-sm font-semibold transition">今週</button>
-                  <button onClick={nextWk}  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl text-sm font-semibold transition">次週 →</button>
-                  {/* v3：表示日数トグル（週ごとに保存） */}
-                  <button onClick={cycleVisibleDays} title="クリックで表示曜日数を切替（月〜金／月〜土／月〜日）。この週だけに保存されます。"
-                    className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-white hover:bg-indigo-50 text-indigo-600 rounded-xl text-sm font-bold transition shadow-sm">
-                    {visibleDaysLabel(visibleDays)}
-                  </button>
-                  <button onClick={openReflect} title="表示中の週だけにベース時間割を反映します"
-                    className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-white hover:bg-blue-50 text-blue-600 rounded-xl text-sm font-bold transition shadow-sm">⤵ 時間割反映</button>
-                  <button onClick={doSync} disabled={syncing} title="表示中の週をGoogleカレンダー（プライマリ）に登録します（要：⚙️設定タブで「📅 カレンダー連携を有効化」／日課マスター）"
-                    className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-white hover:bg-sky-50 text-sky-600 rounded-xl text-sm font-bold transition shadow-sm disabled:opacity-60">
-                    {syncing ? '⏳ 同期中…' : '📅 カレンダー同期'}
-                  </button>
-                  <button onClick={() => window.print()} className="hidden sm:block px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-semibold border border-white/30 transition">🖨 印刷</button>
+                {/* スマホ：2段構成（ナビ／機能ボタン）。PC：1行 flex-wrap でこれまで通り。
+                    スマホでボタンの中の漢字が縦書きに潰れていた原因＝flex-1 で6つ均等分割。
+                    flex-1 を解除して whitespace-nowrap、機能側は overflow-x-auto で横スクロール可能に。 */}
+                <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:flex-wrap">
+                  {/* ナビ：前週／今週／次週 */}
+                  <div className="flex gap-2 sm:contents">
+                    <button onClick={prevWk}  className="flex-1 sm:flex-none whitespace-nowrap px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl text-sm font-semibold transition">← 前週</button>
+                    <button onClick={todayWk} className="flex-1 sm:flex-none whitespace-nowrap px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl text-sm font-semibold transition">今週</button>
+                    <button onClick={nextWk}  className="flex-1 sm:flex-none whitespace-nowrap px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl text-sm font-semibold transition">次週 →</button>
+                  </div>
+                  {/* 機能：表示切替／時間割反映／カレンダー同期 ── スマホで折返さず横スクロール */}
+                  <div className="flex gap-2 sm:contents overflow-x-auto -mx-1 px-1 sm:m-0 sm:p-0">
+                    <button onClick={cycleVisibleDays} title="クリックで表示曜日数を切替（月〜金／月〜土／月〜日）。この週だけに保存されます。"
+                      className="flex-none whitespace-nowrap px-3 sm:px-4 py-2 bg-white hover:bg-indigo-50 text-indigo-600 rounded-xl text-sm font-bold transition shadow-sm">
+                      {visibleDaysLabel(visibleDays)}
+                    </button>
+                    <button onClick={openReflect} title="表示中の週だけにベース時間割を反映します"
+                      className="flex-none whitespace-nowrap px-3 sm:px-4 py-2 bg-white hover:bg-blue-50 text-blue-600 rounded-xl text-sm font-bold transition shadow-sm">⤵ 時間割反映</button>
+                    <button onClick={doSync} disabled={syncing} title="表示中の週をGoogleカレンダー（プライマリ）に登録します（要：⚙️設定タブで「📅 カレンダー連携を有効化」／日課マスター）"
+                      className="flex-none whitespace-nowrap px-3 sm:px-4 py-2 bg-white hover:bg-sky-50 text-sky-600 rounded-xl text-sm font-bold transition shadow-sm disabled:opacity-60">
+                      {syncing ? '⏳ 同期中…' : '📅 カレンダー同期'}
+                    </button>
+                    <button onClick={() => window.print()} className="hidden sm:block px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-semibold border border-white/30 transition">🖨 印刷</button>
+                  </div>
                 </div>
               </div>
               <div className="overflow-x-auto">
