@@ -13,8 +13,14 @@
   <style>
     body { font-family: 'Hiragino Sans', 'Yu Gothic UI', sans-serif; }
     .cell-hover:hover { filter: brightness(0.97); }
-    /* モバイル：スクロールバー非表示 */
-    .overflow-x-auto { -webkit-overflow-scrolling: touch; }
+    /* ★スマホ：内部の横スクロール領域でタッチを確実に効かせる
+       html/body に overflow-x:hidden を入れていると、子の overflow-x:auto の
+       タッチが阻害される iOS Safari のクセを touch-action で打ち消す。 */
+    .overflow-x-auto {
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-x pan-y;
+      overscroll-behavior-x: contain;
+    }
     .overflow-x-auto::-webkit-scrollbar { display: none; }
     /* ★スマホでテーブル等が画面より広い時に、ページ全体まで横スクロールしてしまう問題の防止。
        テーブル本体は外側を .overflow-x-auto で囲んで個別にスクロール可能にしている。
